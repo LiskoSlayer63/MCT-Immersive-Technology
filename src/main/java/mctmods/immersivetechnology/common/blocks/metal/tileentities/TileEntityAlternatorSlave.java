@@ -125,38 +125,28 @@ public class TileEntityAlternatorSlave extends TileEntityMultiblockPart <TileEnt
 	}
 
 	@Override
-	public boolean isMechanicalEnergyTransmitter() {
+	public boolean isValid() {
+		return formed;
+	}
+
+	@Override
+	public boolean isMechanicalEnergyTransmitter(EnumFacing facing) {
 		return false;
 	}
 
 	@Override
-	public boolean isMechanicalEnergyReceiver() {
-		return true;
+	public boolean isMechanicalEnergyReceiver(EnumFacing facing) {
+		return master() != null && master.isMechanicalEnergyReceiver(facing, pos);
 	}
 
 	@Override
-	public EnumFacing getMechanicalEnergyOutputFacing() {
-		return null;
-	}
-
-	@Override
-	public EnumFacing getMechanicalEnergyInputFacing() {
-		return facing;
-	}
-
-	@Override
-	public int inputToCenterDistance() {
-		return 3;
-	}
-
-	@Override
-	public int outputToCenterDistance() {
-		return -1;
-	}
-
-	@Override
-	public int getEnergy() {
+	public int getSpeed() {
 		return master() == null ? 0 : master.speed;
+	}
+
+	@Override
+	public float getTorqueMultiplier() {
+		return 0;
 	}
 
 	public MechanicalEnergyAnimation getAnimation() {

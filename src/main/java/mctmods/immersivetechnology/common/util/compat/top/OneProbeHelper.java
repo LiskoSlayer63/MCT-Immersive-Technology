@@ -6,10 +6,7 @@ import mctmods.immersivetechnology.ImmersiveTechnology;
 import mctmods.immersivetechnology.common.Config.ITConfig.Machines.Boiler;
 import mctmods.immersivetechnology.common.Config.ITConfig.MechanicalEnergy;
 import mctmods.immersivetechnology.common.blocks.ITBlockInterfaces.IMechanicalEnergy;
-import mctmods.immersivetechnology.common.blocks.metal.tileentities.TileEntityBoilerMaster;
-import mctmods.immersivetechnology.common.blocks.metal.tileentities.TileEntityBoilerSlave;
-import mctmods.immersivetechnology.common.blocks.metal.tileentities.TileEntitySteamTurbineSlave;
-import mctmods.immersivetechnology.common.blocks.metal.tileentities.TileEntitySteelSheetmetalTankSlave;
+import mctmods.immersivetechnology.common.blocks.metal.tileentities.*;
 import mctmods.immersivetechnology.common.util.compat.ITCompatModule;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayer;
@@ -20,7 +17,8 @@ import net.minecraftforge.fml.common.event.FMLInterModComms;
 import javax.annotation.Nullable;
 import java.util.function.Function;
 
-	/*
+
+/*
 	* Created by Kurtchekov on 2019-01-01.
 	*/
 public class OneProbeHelper extends ITCompatModule implements Function<ITheOneProbe, Void> {
@@ -79,7 +77,7 @@ public class OneProbeHelper extends ITCompatModule implements Function<ITheOnePr
 			if(te instanceof IMechanicalEnergy) {
 				TileEntityMultiblockPart<?> master = ((TileEntityMultiblockPart<?>)te).master();
 				if(master == null) return;
-				int current = ((IMechanicalEnergy)master).getEnergy();
+				int current = ((IMechanicalEnergy)master).getSpeed();
 				probeInfo.horizontal(probeInfo.defaultLayoutStyle().alignment(ElementAlignment.ALIGN_CENTER).spacing(2)).text("Speed").progress(current, maxSpeed, probeInfo.defaultProgressStyle().numberFormat(NumberFormat.FULL).suffix("RPM"));
 			}
 		}
@@ -98,15 +96,18 @@ public class OneProbeHelper extends ITCompatModule implements Function<ITheOnePr
 				int current = master.master().tank.getFluidAmount();
 				int max = master.master().tank.getCapacity();
 				if(current > 0)	probeInfo.progress(current, max, probeInfo.defaultProgressStyle().suffix("mB").numberFormat(NumberFormat.COMPACT));
-			}
-			if(te instanceof TileEntitySteamTurbineSlave) {
+			} else if(te instanceof TileEntitySteamTurbineSlave) {
 				TileEntitySteamTurbineSlave master = ((TileEntitySteamTurbineSlave)te).master();
+				int current = master.master().tanks[0].getFluidAmount();
+				int max = master.master().tanks[0].getCapacity();
+				probeInfo.horizontal(probeInfo.defaultLayoutStyle().alignment(ElementAlignment.ALIGN_CENTER).spacing(11)).text("Fuel").progress(current, max, probeInfo.defaultProgressStyle().numberFormat(NumberFormat.FULL).suffix("mB"));
+			} else if(te instanceof TileEntityGasTurbineSlave) {
+				TileEntityGasTurbineSlave master = ((TileEntityGasTurbineSlave)te).master();
 				int current = master.master().tanks[0].getFluidAmount();
 				int max = master.master().tanks[0].getCapacity();
 				probeInfo.horizontal(probeInfo.defaultLayoutStyle().alignment(ElementAlignment.ALIGN_CENTER).spacing(11)).text("Fuel").progress(current, max, probeInfo.defaultProgressStyle().numberFormat(NumberFormat.FULL).suffix("mB"));
 			}
 		}
-
 	}
 
 }

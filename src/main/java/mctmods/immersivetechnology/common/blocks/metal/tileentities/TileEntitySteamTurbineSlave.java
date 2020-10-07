@@ -64,38 +64,28 @@ public class TileEntitySteamTurbineSlave extends TileEntityMultiblockNewSystem<T
 	}
 
 	@Override
-	public boolean isMechanicalEnergyTransmitter() {
-		return true;
+	public boolean isValid() {
+		return formed;
 	}
 
 	@Override
-	public boolean isMechanicalEnergyReceiver() {
+	public boolean isMechanicalEnergyTransmitter(EnumFacing facing) {
+		return master() != null && master.isMechanicalEnergyTransmitter(facing, pos);
+	}
+
+	@Override
+	public boolean isMechanicalEnergyReceiver(EnumFacing facing) {
 		return false;
 	}
 
 	@Override
-	public EnumFacing getMechanicalEnergyOutputFacing() {
-		return facing;
-	}
-
-	@Override
-	public EnumFacing getMechanicalEnergyInputFacing() {
-		return null;
-	}
-
-	@Override
-	public int inputToCenterDistance() {
-		return -1;
-	}
-
-	@Override
-	public int outputToCenterDistance() {
-		return 9;
-	}
-
-	@Override
-	public int getEnergy() {
+	public int getSpeed() {
 		return master() == null? 0 : master.speed;
+	}
+
+	@Override
+	public float getTorqueMultiplier() {
+		return 1;
 	}
 
 	public MechanicalEnergyAnimation getAnimation() {

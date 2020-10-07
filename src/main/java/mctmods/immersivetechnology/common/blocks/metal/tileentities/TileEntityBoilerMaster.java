@@ -16,7 +16,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.NonNullList;
-import net.minecraft.util.SoundCategory;
 import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidTank;
@@ -29,12 +28,13 @@ import net.minecraftforge.oredict.OreDictionary;
 
 public class TileEntityBoilerMaster extends TileEntityBoilerSlave implements ITFluidTank.TankListener {
 
-	private static int inputFuelTankSize = Boiler.boiler_fuel_tankSize;
 	private static int inputTankSize = Boiler.boiler_input_tankSize;
 	private static int outputTankSize = Boiler.boiler_output_tankSize;
+	private static int inputFuelTankSize = Boiler.boiler_fuel_tankSize;
 	private static int heatLossPerTick = Boiler.boiler_heat_lossPerTick;
 	private static int progressLossPerTick = Boiler.boiler_progress_lossInTicks;
 	private static double workingHeatLevel = Boiler.boiler_heat_workingLevel;
+	BlockPos fluidOutputPos;
 
 	public FluidTank[] tanks = new FluidTank[] {
 			new ITFluidTank(inputFuelTankSize, this),
@@ -73,7 +73,7 @@ public class TileEntityBoilerMaster extends TileEntityBoilerSlave implements ITF
 		nbt.setTag("tank2", tanks[2].writeToNBT(new NBTTagCompound()));
 		nbt.setDouble("heatLevel", heatLevel);
 		nbt.setInteger("burnRemaining", burnRemaining);
-		nbt.setFloat("recipeTimeRemaining", recipeTimeRemaining);
+		nbt.setInteger("recipeTimeRemaining", recipeTimeRemaining);
 		if(!descPacket) nbt.setTag("inventory", Utils.writeInventory(inventory));
 	}
 
@@ -118,6 +118,18 @@ public class TileEntityBoilerMaster extends TileEntityBoilerSlave implements ITF
 		return false;
 	}
 
+	private void pumpOutputOut() {
+		if(tanks[2].getFluidAmount() == 0) return;
+		if(fluidOutputPos == null) fluidOutputPos = ITUtils.LocalOffsetToWorldBlockPos(this.getPos(), -2, 2, 1, facing, mirrored);
+		IFluidHandler output = FluidUtil.getFluidHandler(world, fluidOutputPos, EnumFacing.DOWN);
+		if(output == null) return;
+		FluidStack out = tanks[2].getFluid();
+		int accepted = output.fill(out, false);
+		if(accepted == 0) return;
+		int drained = output.fill(Utils.copyFluidStackWithAmount(out, Math.min(out.amount, accepted), false), true);
+		this.tanks[2].drain(drained, true);
+	}
+
 	public void handleSounds() {
 		BlockPos center = getPos();
 		float level = (float) (heatLevel / workingHeatLevel);
@@ -125,7 +137,7 @@ public class TileEntityBoilerMaster extends TileEntityBoilerSlave implements ITF
 		else {
 			EntityPlayerSP player = Minecraft.getMinecraft().player;
 			float attenuation = Math.max((float) player.getDistanceSq(center.getX(), center.getY(), center.getZ()) / 8, 1);
-			ITSoundHandler.PlaySound(center, ITSounds.boiler, SoundCategory.BLOCKS, true, (2 * level) / attenuation, level);
+			ITSounds.boiler.PlayRepeating(center, (2 * level) / attenuation, level);
 		}
 	}
 
@@ -148,6 +160,11 @@ public class TileEntityBoilerMaster extends TileEntityBoilerSlave implements ITF
 		tag.setDouble("heat", heatLevel);
 		BlockPos center = getPos();
 		ImmersiveTechnology.packetHandler.sendToAllAround(new MessageTileSync(this, tag), new NetworkRegistry.TargetPoint(world.provider.getDimension(), center.getX(), center.getY(), center.getZ(), 40));
+	}
+
+	@Override
+	public void receiveMessageFromServer(NBTTagCompound message) {
+		heatLevel = message.getDouble("heat");
 	}
 
 	public void efficientMarkDirty() { // !!!!!!! only use it within update() function !!!!!!!
@@ -192,7 +209,7 @@ public class TileEntityBoilerMaster extends TileEntityBoilerSlave implements ITF
 
 	private boolean outputTankLogic() {
 		boolean update = false;
-		if(this.tanks[2].getFluidAmount() >0) {
+		if(this.tanks[2].getFluidAmount() > 0) {
 			ItemStack filledContainer = Utils.fillFluidContainer(tanks[2], inventory.get(4), inventory.get(5), null);
 			if(!filledContainer.isEmpty()) {
 				if(!inventory.get(5).isEmpty() && OreDictionary.itemMatches(inventory.get(5), filledContainer, true)) inventory.get(5).grow(filledContainer.getCount());
@@ -202,20 +219,7 @@ public class TileEntityBoilerMaster extends TileEntityBoilerSlave implements ITF
 				markContainingBlockForUpdate(null);
 				update = true;
 			}
-			if(this.tanks[2].getFluidAmount() > 0) {
-				FluidStack out = Utils.copyFluidStackWithAmount(this.tanks[2].getFluid(), Math.min(this.tanks[2].getFluidAmount(), 1000), true);
-				BlockPos outputPos = ITUtils.LocalOffsetToWorldBlockPos(this.getPos(), mirrored ? 2 : -2, 2, 1, facing);
-				IFluidHandler output = FluidUtil.getFluidHandler(world, outputPos, EnumFacing.DOWN);
-				if(output != null) {
-					int accepted = output.fill(out, false);
-					if(accepted > 0) {
-						int drained = output.fill(Utils.copyFluidStackWithAmount(out, Math.min(out.amount, accepted), false), true);
-						this.tanks[2].drain(drained, true);
-						markContainingBlockForUpdate(null);
-						update=true;
-					}
-				}
-			}
+			pumpOutputOut();
 		}
 		return update;
 	}
@@ -250,6 +254,7 @@ public class TileEntityBoilerMaster extends TileEntityBoilerSlave implements ITF
 
 	@Override
 	public void update() {
+		if(!formed) return;
 		if(world.isRemote) {
 			handleSounds();
 			return;
@@ -284,11 +289,6 @@ public class TileEntityBoilerMaster extends TileEntityBoilerSlave implements ITF
 	public TileEntityBoilerMaster master() {
 		master = this;
 		return this;
-	}
-
-	@Override
-	public void receiveMessageFromServer(NBTTagCompound message) {
-		heatLevel = message.getDouble("heat");
 	}
 
 }

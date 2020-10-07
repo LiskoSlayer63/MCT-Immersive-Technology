@@ -1,9 +1,10 @@
-package mctmods.immersivetechnology.common.blocks.metal.tileentities;
+package mctmods.immersivetechnology.common.blocks.metal.tileentities.conversion;
 
 import blusunrize.immersiveengineering.api.MultiblockHandler;
 import blusunrize.immersiveengineering.common.util.Utils;
 import mctmods.immersivetechnology.common.CommonProxy;
-import mctmods.immersivetechnology.common.blocks.metal.multiblocks.MultiblockSolarTower;
+import mctmods.immersivetechnology.common.blocks.metal.multiblocks.MultiblockAlternator;
+import mctmods.immersivetechnology.common.blocks.metal.tileentities.TileEntityAlternatorSlave;
 import mctmods.immersivetechnology.common.util.TemporaryTileEntityRequest;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.item.ItemStack;
@@ -12,14 +13,14 @@ import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 
 //REMOVE THIS AFTER PORTING!!!
-public class TileEntitySolarTower extends TileEntitySolarTowerSlave {
+public class TileEntityAlternator extends TileEntityAlternatorSlave {
 
 	public MultiblockHandler.IMultiblock getMultiblock() {
-		return MultiblockSolarTower.instance;
+		return MultiblockAlternator.instance;
 	}
 
 	public int[] dimensions() {
-		return new int[] { 7, 3, 3 };
+		return new int[] {3, 4, 3};
 	}
 
 	public ItemStack checkPos(int pos) {
@@ -40,7 +41,6 @@ public class TileEntitySolarTower extends TileEntitySolarTowerSlave {
 
 	public void update() {
 		if(changeTo != null) {
-			//world.setBlockToAir(worldPosition);
 			world.setBlockState(worldPosition, changeTo);
 			if(master) {
 				TemporaryTileEntityRequest request = new TemporaryTileEntityRequest();

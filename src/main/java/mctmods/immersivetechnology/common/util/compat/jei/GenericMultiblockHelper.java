@@ -10,8 +10,8 @@ public class GenericMultiblockHelper implements IIngredientHelper<GenericMultibl
     @Nullable
     @Override
     public GenericMultiblockIngredient getMatch(Iterable<GenericMultiblockIngredient> iterable, GenericMultiblockIngredient genericMultiblockIngredient) {
-        for (GenericMultiblockIngredient ing : iterable) {
-            if (ing.renderStack.isItemEqual(genericMultiblockIngredient.renderStack)) return ing;
+        for(GenericMultiblockIngredient ing : iterable) {
+            if(ing.renderStack.isItemEqual(genericMultiblockIngredient.renderStack)) return ing;
         }
         return null;
     }
@@ -55,4 +55,5 @@ public class GenericMultiblockHelper implements IIngredientHelper<GenericMultibl
     public String getErrorInfo(@Nullable GenericMultiblockIngredient genericMultiblockIngredient) {
         return (genericMultiblockIngredient == null)? "genericMultiblockIngredient is not supposed to be null!" : "";
     }
+
 }

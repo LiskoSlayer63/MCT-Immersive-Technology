@@ -41,7 +41,8 @@ public enum TranslationKey {
     OVERLAY_REDSTONE_OFF("overlay.immersivetech.redstone_off"),
     OVERLAY_REDSTONE_NORMAL("overlay.immersivetech.redstone_normal"),
     OVERLAY_REDSTONE_INVERTED("overlay.immersivetech.redstone_inverted"),
-    GUI_GENERIC_MULTIBLOCK_TOOLTIP("gui.immersivetech.generic_multiblock_jei_tooltip");
+    GUI_GENERIC_MULTIBLOCK_TOOLTIP("gui.immersivetech.generic_multiblock_jei_tooltip"),
+    CATEGORY_DISTILLER_CHANCE("category.immersivetech.metal_multiblock.distillerChance");
 
 	public String location;
 	TranslationKey(String location) {
@@ -71,4 +72,5 @@ public enum TranslationKey {
 	public String format(Object... parameters) {
 		return format(false, false, parameters);
 	}
+
 }

@@ -6,16 +6,13 @@ import net.minecraft.util.EnumFacing;
 public class ITBlockInterfaces {
 
 	public interface IMechanicalEnergy {
-		boolean isMechanicalEnergyTransmitter();
-		boolean isMechanicalEnergyReceiver();
+		boolean isValid();
 
-		EnumFacing getMechanicalEnergyOutputFacing();
-		EnumFacing getMechanicalEnergyInputFacing();
+		boolean isMechanicalEnergyTransmitter(EnumFacing facing);
+		boolean isMechanicalEnergyReceiver(EnumFacing facing);
 
-		int inputToCenterDistance();
-		int outputToCenterDistance();
-
-		int getEnergy();
+		int getSpeed();
+		float getTorqueMultiplier();
 		MechanicalEnergyAnimation getAnimation();
 	}
 

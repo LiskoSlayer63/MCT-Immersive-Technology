@@ -2,7 +2,9 @@ package mctmods.immersivetechnology.common.blocks.metal.tileentities;
 
 import blusunrize.immersiveengineering.common.util.Utils;
 import mctmods.immersivetechnology.ImmersiveTechnology;
+import mctmods.immersivetechnology.api.ITUtils;
 import mctmods.immersivetechnology.api.crafting.DistillerRecipe;
+import mctmods.immersivetechnology.common.Config.ITConfig.Machines.Distiller;
 import mctmods.immersivetechnology.common.util.ITFluidTank;
 import mctmods.immersivetechnology.common.util.ITSounds;
 import mctmods.immersivetechnology.common.util.network.MessageStopSound;
@@ -12,9 +14,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.util.EnumFacing;
 import net.minecraft.util.NonNullList;
-import net.minecraft.util.SoundCategory;
 import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidTank;
@@ -27,9 +27,13 @@ import net.minecraftforge.oredict.OreDictionary;
 
 public class TileEntityDistillerMaster extends TileEntityDistillerSlave implements ITFluidTank.TankListener {
 
+	private static int inputTankSize = Distiller.distiller_input_tankSize;
+	private static int outputTankSize = Distiller.distiller_output_tankSize;
+	BlockPos fluidOutputPos;
+
 	public FluidTank[] tanks = new FluidTank[] {
-			new ITFluidTank(24000, this),
-			new ITFluidTank(24000, this)
+			new ITFluidTank(inputTankSize, this),
+			new ITFluidTank(outputTankSize, this)
 	};
 
 	public static int slotCount = 4;
@@ -57,6 +61,18 @@ public class TileEntityDistillerMaster extends TileEntityDistillerSlave implemen
 		if(!descPacket) nbt.setTag("inventory", Utils.writeInventory(inventory));
 	}
 
+	private void pumpOutputOut() {
+		if(tanks[1].getFluidAmount() == 0) return;
+		if(fluidOutputPos == null) fluidOutputPos = ITUtils.LocalOffsetToWorldBlockPos(this.getPos(), -2, -1, 0, facing, mirrored);
+		IFluidHandler output = FluidUtil.getFluidHandler(world, fluidOutputPos, mirrored? facing.rotateYCCW() : facing.rotateY());
+		if(output == null) return;
+		FluidStack out = tanks[1].getFluid();
+		int accepted = output.fill(out, false);
+		if(accepted == 0) return;
+		int drained = output.fill(Utils.copyFluidStackWithAmount(out, Math.min(out.amount, accepted), false), true);
+		this.tanks[1].drain(drained, true);
+	}
+
 	public void handleSounds() {
 		if(running) {
 			if(soundVolume < 1) soundVolume += 0.01f;
@@ -66,7 +82,7 @@ public class TileEntityDistillerMaster extends TileEntityDistillerSlave implemen
 		else {
 			EntityPlayerSP player = Minecraft.getMinecraft().player;
 			float attenuation = Math.max((float) player.getDistanceSq(center.getX(), center.getY(), center.getZ()) / 8, 1);
-			ITSoundHandler.PlaySound(center, ITSounds.distiller, SoundCategory.BLOCKS, true, soundVolume / attenuation, 1);
+			ITSounds.distiller.PlayRepeating(center, soundVolume / attenuation, 1);
 		}
 	}
 
@@ -98,6 +114,7 @@ public class TileEntityDistillerMaster extends TileEntityDistillerSlave implemen
 	@SuppressWarnings("unchecked")
 	@Override
 	public void update() {
+		if(!formed) return;
 		if(world.isRemote) {
 			handleSounds();
 			return;
@@ -121,40 +138,22 @@ public class TileEntityDistillerMaster extends TileEntityDistillerSlave implemen
 				inventory.get(2).shrink(1);
 				if(inventory.get(2).getCount() <= 0) inventory.set(2, ItemStack.EMPTY);
 			}
-			EnumFacing fw;
-			if(!mirrored) {
-				fw = facing.rotateY().getOpposite();
-			} else {
-				fw = facing.rotateY();
-			}
-			if(this.tanks[1].getFluidAmount() > 0) {
-				FluidStack out = Utils.copyFluidStackWithAmount(this.tanks[1].getFluid(), Math.min(this.tanks[1].getFluidAmount(), 80), false);
-				BlockPos outputPos = this.getPos().add(0, -1, 0).offset(fw, 2);
-				IFluidHandler output = FluidUtil.getFluidHandler(world, outputPos, facing.rotateY());
-				if(output != null) {
-					int accepted = output.fill(out, false);
-					if(accepted > 0) {
-						int drained = output.fill(Utils.copyFluidStackWithAmount(out, Math.min(out.amount, accepted), false), true);
-						this.tanks[1].drain(drained, true);
-					}
-				}
-			}
 		}
 		ItemStack emptyContainer = Utils.drainFluidContainer(tanks[0], inventory.get(0), inventory.get(1), null);
+		pumpOutputOut();
 		if(!emptyContainer.isEmpty() && emptyContainer.getCount() > 0) {
 			if(!inventory.get(1).isEmpty() && OreDictionary.itemMatches(inventory.get(1), emptyContainer, true)) inventory.get(1).grow(emptyContainer.getCount());
 			else if(inventory.get(1).isEmpty())	inventory.set(1, emptyContainer.copy());
 			inventory.get(0).shrink(1);
 			if(inventory.get(0).getCount() <= 0) inventory.set(0, ItemStack.EMPTY);
 		}
+		running = shouldRenderAsActive() && !processQueue.isEmpty() && processQueue.get(0).canProcess(this);
+		if(previousRenderState != running) notifyNearbyClients();
+		previousRenderState = running;
 		if(update) {
 			efficientMarkDirty();
 			this.markContainingBlockForUpdate(null);
 		}
-
-		running = shouldRenderAsActive() && !processQueue.isEmpty() && processQueue.get(0).canProcess(this);
-		if(previousRenderState != running) notifyNearbyClients();
-		previousRenderState = running;
 	}
 
 	@Override

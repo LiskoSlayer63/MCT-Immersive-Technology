@@ -114,7 +114,7 @@ public abstract class TileEntityCommonValve extends TileEntityIEBase implements 
 		} else if(player.isSneaking() && Utils.isHammer(heldItem)) {
 			if(++redstoneMode > 2) redstoneMode = 0;
 			String translationKey;
-			switch (redstoneMode) {
+			switch(redstoneMode) {
 				case 1: translationKey = TranslationKey.OVERLAY_REDSTONE_NORMAL.location; break;
 				case 2: translationKey = TranslationKey.OVERLAY_REDSTONE_INVERTED.location; break;
 				default: translationKey = TranslationKey.OVERLAY_REDSTONE_OFF.location;
@@ -258,4 +258,5 @@ public abstract class TileEntityCommonValve extends TileEntityIEBase implements 
 	public static int longToInt(long value) {
 		return value > Integer.MAX_VALUE? Integer.MAX_VALUE : value < Integer.MIN_VALUE? Integer.MIN_VALUE : (int) value;
 	}
+
 }

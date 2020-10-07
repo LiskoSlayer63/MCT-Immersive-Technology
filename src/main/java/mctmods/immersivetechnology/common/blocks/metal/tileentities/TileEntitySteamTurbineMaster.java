@@ -7,6 +7,7 @@ import mctmods.immersivetechnology.api.client.MechanicalEnergyAnimation;
 import mctmods.immersivetechnology.api.crafting.SteamTurbineRecipe;
 import mctmods.immersivetechnology.common.Config.ITConfig.Machines.SteamTurbine;
 import mctmods.immersivetechnology.common.Config.ITConfig.MechanicalEnergy;
+import mctmods.immersivetechnology.common.blocks.ITBlockInterfaces.IMechanicalEnergy;
 import mctmods.immersivetechnology.common.util.ITFluidTank;
 import mctmods.immersivetechnology.common.util.ITSounds;
 import mctmods.immersivetechnology.common.util.network.MessageStopSound;
@@ -14,7 +15,8 @@ import mctmods.immersivetechnology.common.util.sound.ITSoundHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.util.SoundCategory;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidTank;
@@ -26,12 +28,13 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 public class TileEntitySteamTurbineMaster extends TileEntitySteamTurbineSlave implements ITFluidTank.TankListener {
 
+	private static int inputTankSize = SteamTurbine.steamTurbine_input_tankSize;
+	private static int outputTankSize = SteamTurbine.steamTurbine_input_tankSize;
 	private static int maxSpeed = MechanicalEnergy.mechanicalEnergy_speed_max;
 	private static int speedGainPerTick = SteamTurbine.steamTurbine_speed_gainPerTick;
 	private static int speedLossPerTick = SteamTurbine.steamTurbine_speed_lossPerTick;
-	private static int inputTankSize = SteamTurbine.steamTurbine_input_tankSize;
-	private static int outputTankSize = SteamTurbine.steamTurbine_input_tankSize;
 	private static float maxRotationSpeed = SteamTurbine.steamTurbine_speed_maxRotation;
+	BlockPos fluidOutputPos;
 
 	public FluidTank[] tanks = new FluidTank[] {
 		new ITFluidTank(inputTankSize, this),
@@ -41,11 +44,11 @@ public class TileEntitySteamTurbineMaster extends TileEntitySteamTurbineSlave im
 	public int burnRemaining = 0;
 	public int speed;
 
-	public static BlockPos fluidOutputPos;
-
 	public SteamTurbineRecipe lastRecipe;
 
 	MechanicalEnergyAnimation animation = new MechanicalEnergyAnimation();
+
+	IMechanicalEnergy alternator;
 
 	@Override
 	public void readCustomNBT(NBTTagCompound nbt, boolean descPacket) {
@@ -77,7 +80,7 @@ public class TileEntitySteamTurbineMaster extends TileEntitySteamTurbineSlave im
 
 	private void pumpOutputOut() {
 		if(tanks[1].getFluidAmount() == 0) return;
-		if(fluidOutputPos == null) fluidOutputPos = ITUtils.LocalOffsetToWorldBlockPos(this.getPos(), 0, 2, 8, facing);
+		if(fluidOutputPos == null) fluidOutputPos = ITUtils.LocalOffsetToWorldBlockPos(this.getPos(), 0, 2, 8, facing, mirrored);
 		IFluidHandler output = FluidUtil.getFluidHandler(world, fluidOutputPos, facing.getOpposite());
 		if(output == null) return;
 		FluidStack out = tanks[1].getFluid();
@@ -88,13 +91,13 @@ public class TileEntitySteamTurbineMaster extends TileEntitySteamTurbineSlave im
 	}
 
 	public void handleSounds() {
-		float level = (float) speed / maxSpeed;
+		float level = ITUtils.remapRange(0, maxSpeed, 0.5f, 1.0f, speed);
 		BlockPos center = getPos().offset(facing, 5);
-		if(level == 0) ITSoundHandler.StopSound(center);
+		if(speed == 0) ITSoundHandler.StopSound(center);
 		else {
 			EntityPlayerSP player = Minecraft.getMinecraft().player;
 			float attenuation = Math.max((float) player.getDistanceSq(center.getX(), center.getY(), center.getZ()) / 8, 1);
-			ITSoundHandler.PlaySound(center, ITSounds.turbine, SoundCategory.BLOCKS, true, (10 * level) / attenuation, level);
+			ITSounds.turbine.PlayRepeating(center, (11 * (level - 0.5f)) / attenuation, level);
 		}
 	}
 
@@ -107,17 +110,31 @@ public class TileEntitySteamTurbineMaster extends TileEntitySteamTurbineSlave im
 
 	@Override
 	public void disassemble() {
+		super.disassemble();
 		BlockPos center = getPos().offset(facing, 5);
 		ImmersiveTechnology.packetHandler.sendToAllTracking(new MessageStopSound(center), new NetworkRegistry.TargetPoint(world.provider.getDimension(), center.getX(), center.getY(), center.getZ(), 0));
-		super.disassemble();
 	}
 
 	public void efficientMarkDirty() { // !!!!!!! only use it within update() function !!!!!!!
 		world.getChunkFromBlockCoords(this.getPos()).markDirty();
 	}
 
+	public boolean isValidAlternator() {
+		if (alternator == null || !alternator.isValid()) {
+			TileEntity tile = world.getTileEntity(getPos().offset(facing, 10));
+			if (tile instanceof IMechanicalEnergy) {
+				IMechanicalEnergy possibleAlternator = (IMechanicalEnergy) tile;
+				if (possibleAlternator.isValid() && possibleAlternator.isMechanicalEnergyReceiver(facing.getOpposite())) {
+					alternator = possibleAlternator;
+				}
+			}
+		}
+		return alternator != null && alternator.isValid();
+	}
+
 	@Override
 	public void update() {
+		if(!formed) return;
 		if(world.isRemote) {
 			handleSounds();
 			return;
@@ -130,7 +147,7 @@ public class TileEntitySteamTurbineMaster extends TileEntitySteamTurbineSlave im
 		if(burnRemaining > 0) {
 			burnRemaining--;
 			speedUp();
-		} else if(!isRSDisabled() && tanks[0].getFluid() != null && tanks[0].getFluid().getFluid() != null && ITUtils.checkMechanicalEnergyReceiver(world, getPos()) && ITUtils.checkAlternatorStatus(world, getPos())) {
+		} else if(!isRSDisabled() && tanks[0].getFluid() != null && tanks[0].getFluid().getFluid() != null && isValidAlternator()) {
 			SteamTurbineRecipe recipe = (lastRecipe != null && tanks[0].getFluid().isFluidEqual(lastRecipe.fluidInput)) ? lastRecipe : SteamTurbineRecipe.findFuel(tanks[0].getFluid());
 			if(recipe != null && recipe.fluidInput.amount <= tanks[0].getFluidAmount()) {
 				lastRecipe = recipe;
@@ -160,4 +177,7 @@ public class TileEntitySteamTurbineMaster extends TileEntitySteamTurbineSlave im
 		return this;
 	}
 
+	public boolean isMechanicalEnergyTransmitter(EnumFacing facing, int position) {
+		return facing == this.facing && position == 58;
+	}
 }
